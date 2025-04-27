@@ -17,3 +17,8 @@
    ```bash
    docker compose up --build
    ```
+
+## Docekr results:
+
+![зображення](https://github.com/user-attachments/assets/c8107cf9-a530-489f-b67f-a442e1516d46)
+
