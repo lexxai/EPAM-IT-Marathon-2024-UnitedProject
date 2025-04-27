@@ -1,0 +1,81 @@
+services:
+  mysql:
+    image: mysql:8.0.39
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME:-petproject}
+      MYSQL_USER: ${DATABASE_USER:-admin}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "${DATABASE_PORT:-3306}:3306"
+    volumes:
+      - it-marathon-db-data:/var/lib/mysql
+    restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DATABASE_USER}", "-p${DATABASE_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: dotnet-images-app
+    hostname: azurite
+    restart: always
+    command: 'azurite --loose --blobHost 0.0.0.0 --blobPort 10000 --location /blobs --debug /blobs/debug.log'
+    ports:
+      - "${APP_DOTNET_PORT:-10000}:10000"
+    depends_on:
+      mysql:
+          condition: service_healthy
+    volumes:
+      - it-marathon-blob-data:/blobs
+  app:
+    build:
+      context: ./python
+      dockerfile: Dockerfile
+    container_name: python-auth-app
+    volumes:
+      - ./python/pet-project:/pet-project
+    environment:
+      - DATABASE_HOST=${DATABASE_HOST:-mysql}
+      - DATABASE_PORT=${DATABASE_PORT:-3306}
+      - DATABASE_USER=${DATABASE_USER:-admin}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME:-petproject}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - APP_CONFIG__DB__URL=mysql+aiomysql://${DATABASE_USER:-admin}:${DATABASE_PASSWORD}@${DATABASE_HOST:-mysql}:${DATABASE_PORT:-3306}/${DATABASE_NAME:-petproject}
+      - APP_CONFIG__DB__ALEMBIC_URL=mysql+aiomysql://${DATABASE_USER:-admin}:${DATABASE_PASSWORD}@${DATABASE_HOST:-mysql}:${DATABASE_PORT:-3306}/${DATABASE_NAME:-petproject}
+      - APP_CONFIG__DB__ECHO=${APP_CONFIG__DB__ECHO}
+      - APP_CONFIG__ACCESS_TOKEN__RESET_PASSWORD_TOKEN_SECRET=${APP_CONFIG__ACCESS_TOKEN__RESET_PASSWORD_TOKEN_SECRET}
+      - APP_CONFIG__ACCESS_TOKEN__VERIFICATION_TOKEN_SECRET=${APP_CONFIG__ACCESS_TOKEN__VERIFICATION_TOKEN_SECRET}
+      - APP_PRODUCTION_URL=${APP_PRODUCTION_URL}
+    ports:
+      - "${APP_PYTHON_PORT:-8000}:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mailtrap:
+        condition: service_healthy
+
+
+  mailtrap:
+    image: dbck/mailtrap:latest
+    container_name: mailtrap-app
+    environment:
+      - TZ=Europe/Berlin
+      - MAILTRAP_USER=${SMTP_USERNAME}
+      - MAILTRAP_PASSWORD=${SMTP_PASSWORD}
+    volumes:
+      - maildata:/var/mail
+    ports:
+      - "5151:80"
+
+
+volumes:
+  it-marathon-db-data:
+  it-marathon-blob-data:
+  maildata:

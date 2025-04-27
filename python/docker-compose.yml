@@ -1,0 +1,76 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pet-project-app
+    volumes:
+      - ./pet-project:/pet-project
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=3306
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - APP_CONFIG__DB__URL=mysql+aiomysql://${DATABASE_USER}:${DATABASE_PASSWORD}@db:3306/${DATABASE_NAME}
+      - APP_CONFIG__DB__ALEMBIC_URL=mysql+aiomysql://${DATABASE_USER}:${DATABASE_PASSWORD}@db:3306/${DATABASE_NAME}
+      - APP_CONFIG__DB__ECHO=${APP_CONFIG__DB__ECHO}
+      - APP_CONFIG__ACCESS_TOKEN__RESET_PASSWORD_TOKEN_SECRET=${APP_CONFIG__ACCESS_TOKEN__RESET_PASSWORD_TOKEN_SECRET}
+      - APP_CONFIG__ACCESS_TOKEN__VERIFICATION_TOKEN_SECRET=${APP_CONFIG__ACCESS_TOKEN__VERIFICATION_TOKEN_SECRET}
+      - APP_PRODUCTION_URL=${APP_PRODUCTION_URL}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      mailtrap:
+        condition: service_healthy
+
+    networks:
+      - app-network
+
+  db:
+    image: mysql
+    container_name: mysql-container
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_USER: ${DATABASE_USER}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+
+
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DATABASE_USER}", "-p${DATABASE_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+  mailtrap:
+    image: dbck/mailtrap:latest
+    environment:
+      - TZ=Europe/Berlin
+      - MAILTRAP_USER=${SMTP_USERNAME}
+      - MAILTRAP_PASSWORD=${SMTP_PASSWORD}
+    volumes:
+      - maildata:/var/mail
+    ports:
+      - "5151:80"
+    networks:
+      - app-network
+
+volumes:
+  db_data:
+  maildata:
+
+networks:
+  app-network:
