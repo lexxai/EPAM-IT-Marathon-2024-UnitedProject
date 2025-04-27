@@ -4,7 +4,7 @@ services:
     container_name: mysql_db
     environment:
       MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DATABASE_NAME:-petproject}
+      MYSQL_DATABASE: ${DATABASE_NAME:-ItMarathonDb}
       MYSQL_USER: ${DATABASE_USER:-admin}
       MYSQL_PASSWORD: ${DATABASE_PASSWORD}
     ports:
